@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevTask Manager</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 { color: #667eea; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .stat-card h3 { color: #666; font-size: 14px; margin-bottom: 10px; }
+        .stat-card p { font-size: 32px; font-weight: bold; color: #667eea; }
+        .add-task {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        input, textarea, select, button {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover { background: #5568d3; }
+        .tasks {
+            display: grid;
+            gap: 15px;
+        }
+        .task-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border-left: 4px solid #667eea;
+        }
+        .task-card.high { border-left-color: #f56565; }
+        .task-card.medium { border-left-color: #ed8936; }
+        .task-card.low { border-left-color: #48bb78; }
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .task-title { font-size: 18px; font-weight: bold; }
+        .task-actions button {
+            width: auto;
+            padding: 8px 15px;
+            margin: 0 5px;
+            font-size: 12px;
+        }
+        .delete-btn { background: #f56565; }
+        .delete-btn:hover { background: #e53e3e; }
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        .badge.pending { background: #feebc8; color: #c05621; }
+        .badge.in_progress { background: #bee3f8; color: #2c5282; }
+        .badge.completed { background: #c6f6d5; color: #22543d; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📝 DevTask Manager</h1>
+            <p>Full-Stack Task Management System</p>
+        </header>
+
+        <div class="stats" id="stats"></div>
+
+        <div class="add-task">
+            <h2>Add New Task</h2>
+            <input type="text" id="title" placeholder="Task Title">
+            <textarea id="description" placeholder="Description" rows="3"></textarea>
+            <select id="priority">
+                <option value="low">Low Priority</option>
+                <option value="medium" selected>Medium Priority</option>
+                <option value="high">High Priority</option>
+            </select>
+            <button onclick="createTask()">Add Task</button>
+        </div>
+
+        <div class="tasks" id="tasks"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5000/api';
+
+        async function fetchStats() {
+            const res = await fetch(`${API_URL}/tasks/stats`);
+            const stats = await res.json();
+            document.getElementById('stats').innerHTML = `
+                <div class="stat-card">
+                    <h3>Total Tasks</h3>
+                    <p>${stats.total}</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Pending</h3>
+                    <p>${stats.pending}</p>
+                </div>
+                <div class="stat-card">
+                    <h3>In Progress</h3>
+                    <p>${stats.in_progress}</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Completed</h3>
+                    <p>${stats.completed}</p>
+                </div>
+            `;
+        }
+
+        async function fetchTasks() {
+            const res = await fetch(`${API_URL}/tasks`);
+            const tasks = await res.json();
+            const tasksDiv = document.getElementById('tasks');
+            tasksDiv.innerHTML = tasks.map(task => `
+                <div class="task-card ${task.priority}">
+                    <div class="task-header">
+                        <div class="task-title">${task.title}</div>
+                        <div class="task-actions">
+                            <button onclick="updateStatus(${task.id}, 'in_progress')">In Progress</button>
+                            <button onclick="updateStatus(${task.id}, 'completed')">Complete</button>
+                            <button class="delete-btn" onclick="deleteTask(${task.id})">Delete</button>
+                        </div>
+                    </div>
+                    <p>${task.description}</p>
+                    <div>
+                        <span class="badge ${task.status}">${task.status.replace('_', ' ')}</span>
+                        <span class="badge">${task.priority} priority</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function createTask() {
+            const title = document.getElementById('title').value;
+            const description = document.getElementById('description').value;
+            const priority = document.getElementById('priority').value;
+            
+            if (!title) {
+                alert('Please enter a task title');
+                return;
+            }
+
+            await fetch(`${API_URL}/tasks`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, description, priority })
+            });
+
+            document.getElementById('title').value = '';
+            document.getElementById('description').value = '';
+            loadData();
+        }
+
+        async function updateStatus(id, status) {
+            await fetch(`${API_URL}/tasks/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status })
+            });
+            loadData();
+        }
+
+        async function deleteTask(id) {
+            if (confirm('Delete this task?')) {
+                await fetch(`${API_URL}/tasks/${id}`, { method: 'DELETE' });
+                loadData();
+            }
+        }
+
+        function loadData() {
+            fetchStats();
+            fetchTasks();
+        }
+
+        loadData();
+    </script>
+</body>
+</html>
